@@ -1,0 +1,13 @@
+streamlit
+groq
+python-dotenv
+pdfplumber
+ollama
+faiss-cpu
+numpy
+SpeechRecognition
+pyttsx3
+PyAudio
+easyocr
+Pillow
+gTTS
