@@ -11,3 +11,4 @@ easyocr
 Pillow
 gTTS
 langchain-text-splitters
+sentence-transformers

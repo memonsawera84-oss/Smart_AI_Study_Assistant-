@@ -5,13 +5,17 @@ Embedding Module
 
 Purpose:
 Convert text chunks into embeddings
-using Ollama.
+using Sentence Transformers.
 
 Author: SK
 =========================================
 """
 
-import ollama
+from sentence_transformers import SentenceTransformer
+
+
+# Load embedding model
+model = SentenceTransformer("all-MiniLM-L6-v2")
 
 
 def create_embedding(text):
@@ -19,9 +23,6 @@ def create_embedding(text):
     Create embedding for one text chunk.
     """
 
-    response = ollama.embed(
-        model="nomic-embed-text",
-        input=text
-    )
+    embedding = model.encode(text)
 
-    return response["embeddings"][0]
+    return embedding.tolist()
