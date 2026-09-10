@@ -2,13 +2,11 @@ streamlit
 groq
 python-dotenv
 pdfplumber
-ollama
 faiss-cpu
 numpy
 SpeechRecognition
-pyttsx3
+gTTS
 easyocr
 Pillow
-gTTS
 langchain-text-splitters
 sentence-transformers
