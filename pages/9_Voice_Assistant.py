@@ -1,49 +1,35 @@
-import streamlit as st
-import speech_recognition as sr
-from gtts import gTTS
-import tempfile
-
-from utils.ai_engine import ask_ai
-
-
-st.title("🎤 Smart AI Voice Assistant")
-
-st.write("Ask your question using your voice.")
-
-
-def speak(text):
-    """Convert AI response to speech."""
-
-    try:
-        tts = gTTS(text=text, lang="en")
-
-        temp = tempfile.NamedTemporaryFile(
-            delete=False,
-            suffix=".mp3"
-        )
-
-        tts.save(temp.name)
-
-        st.audio(temp.name, format="audio/mp3")
-
-    except Exception as e:
-        st.error(f"Voice output error: {e}")
-
-
 def recognize_audio(audio_file):
-    """Convert uploaded/recorded audio into text."""
+    """Convert recorded audio into text."""
 
     recognizer = sr.Recognizer()
 
     try:
-        with sr.AudioFile(audio_file) as source:
+        # Convert Streamlit audio to bytes
+        audio_bytes = audio_file.getvalue()
+
+        # Save audio temporarily
+        with tempfile.NamedTemporaryFile(
+            delete=False,
+            suffix=".wav"
+        ) as temp_audio:
+
+            temp_audio.write(audio_bytes)
+            temp_audio_path = temp_audio.name
+
+        # Read WAV file
+        with sr.AudioFile(temp_audio_path) as source:
             audio = recognizer.record(source)
 
-        text = recognizer.recognize_google(audio)
+        # Convert speech to text
+        text = recognizer.recognize_google(
+            audio,
+            language="en-US"
+        )
 
         return text
 
     except sr.UnknownValueError:
+        st.warning("I could not understand the voice. Please speak clearly and try again.")
         return None
 
     except sr.RequestError as e:
@@ -53,32 +39,3 @@ def recognize_audio(audio_file):
     except Exception as e:
         st.error(f"Audio processing error: {e}")
         return None
-
-
-audio_file = st.audio_input("🎤 Record your question")
-
-if audio_file:
-
-    st.audio(audio_file)
-
-    with st.spinner("🎧 Understanding your question..."):
-
-        user_text = recognize_audio(audio_file)
-
-    if user_text:
-
-        st.write("### 🎤 You")
-        st.write(user_text)
-
-        with st.spinner("🤖 AI is thinking..."):
-
-            ai_response = ask_ai(user_text)
-
-        st.write("### 🤖 AI")
-        st.write(ai_response)
-
-        speak(ai_response)
-
-    else:
-
-        st.error("Sorry, your voice could not be recognized.")
