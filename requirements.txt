@@ -7,7 +7,6 @@ faiss-cpu
 numpy
 SpeechRecognition
 pyttsx3
-PyAudio
 easyocr
 Pillow
 gTTS
