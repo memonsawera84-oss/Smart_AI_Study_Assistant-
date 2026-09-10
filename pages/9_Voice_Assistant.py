@@ -5,47 +5,74 @@ import tempfile
 
 from utils.ai_engine import ask_ai
 
+
 st.title("🎤 Smart AI Voice Assistant")
+
+st.write("Ask your question using your voice.")
 
 
 def speak(text):
-    tts = gTTS(text=text, lang="en")
+    """Convert AI response to speech."""
 
-    temp = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3")
-    tts.save(temp.name)
+    try:
+        tts = gTTS(text=text, lang="en")
 
-    st.audio(temp.name, format="audio/mp3", autoplay=True)
+        temp = tempfile.NamedTemporaryFile(
+            delete=False,
+            suffix=".mp3"
+        )
+
+        tts.save(temp.name)
+
+        st.audio(temp.name, format="audio/mp3")
+
+    except Exception as e:
+        st.error(f"Voice output error: {e}")
 
 
-def listen():
+def recognize_audio(audio_file):
+    """Convert uploaded/recorded audio into text."""
 
     recognizer = sr.Recognizer()
 
-    with sr.Microphone() as source:
-
-        st.info("🎤 Listening...")
-
-        recognizer.adjust_for_ambient_noise(source)
-
-        audio = recognizer.listen(source)
-
     try:
-        return recognizer.recognize_google(audio)
+        with sr.AudioFile(audio_file) as source:
+            audio = recognizer.record(source)
 
-    except:
+        text = recognizer.recognize_google(audio)
+
+        return text
+
+    except sr.UnknownValueError:
+        return None
+
+    except sr.RequestError as e:
+        st.error(f"Speech recognition service error: {e}")
+        return None
+
+    except Exception as e:
+        st.error(f"Audio processing error: {e}")
         return None
 
 
-if st.button("🎤 Start Listening"):
+audio_file = st.audio_input("🎤 Record your question")
 
-    user_text = listen()
+if audio_file:
+
+    st.audio(audio_file)
+
+    with st.spinner("🎧 Understanding your question..."):
+
+        user_text = recognize_audio(audio_file)
 
     if user_text:
 
         st.write("### 🎤 You")
         st.write(user_text)
 
-        ai_response = ask_ai(user_text)
+        with st.spinner("🤖 AI is thinking..."):
+
+            ai_response = ask_ai(user_text)
 
         st.write("### 🤖 AI")
         st.write(ai_response)
@@ -54,4 +81,4 @@ if st.button("🎤 Start Listening"):
 
     else:
 
-        st.error("Voice not recognized.")
+        st.error("Sorry, your voice could not be recognized.")
