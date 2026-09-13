@@ -1,4 +1,5 @@
 import streamlit as st
+from streamlit_webrtc import webrtc_streamer, WebRtcMode
 from groq import Groq
 from gtts import gTTS
 from dotenv import load_dotenv
@@ -6,6 +7,9 @@ from dotenv import load_dotenv
 import os
 import io
 import wave
+import queue
+import threading
+import av
 import numpy as np
 
 from utils.ai_engine import ask_ai
@@ -42,16 +46,18 @@ def get_groq_client():
 
 
 # =========================================================
-# PAGE TITLE
+# PAGE
 # =========================================================
 
 st.title("🎤 Smart AI Voice Assistant")
 
-st.write("Ask your study question using your voice.")
+st.write(
+    "Ask your study question using your voice."
+)
 
 st.info(
-    "🎙️ Click the microphone button, allow microphone access, "
-    "speak your question clearly, then stop recording."
+    "🎙️ Click START, allow microphone access, "
+    "speak your question clearly, then click STOP."
 )
 
 
@@ -79,225 +85,35 @@ def speak(text):
         )
 
     except Exception as e:
-        st.error(f"Voice output error: {e}")
+        st.error(
+            f"Voice output error: {e}"
+        )
 
 
 # =========================================================
-# NORMALIZE AUDIO
+# AUDIO STORAGE
 # =========================================================
 
-def normalize_audio(audio_bytes):
+if "audio_frames" not in st.session_state:
+    st.session_state.audio_frames = []
+
+
+# =========================================================
+# AUDIO CALLBACK
+# =========================================================
+
+def audio_callback(frame):
     try:
-        input_buffer = io.BytesIO(audio_bytes)
+        audio = frame.to_ndarray()
 
-        with wave.open(input_buffer, "rb") as wav:
-            channels = wav.getnchannels()
-            sample_width = wav.getsampwidth()
-            original_rate = wav.getframerate()
-            frames = wav.getnframes()
-            raw_audio = wav.readframes(frames)
-
-        # We need 16-bit audio
-        if sample_width != 2:
-            st.error("Unsupported microphone audio format.")
-            return None
-
-        samples = np.frombuffer(
-            raw_audio,
-            dtype=np.int16
+        st.session_state.audio_frames.append(
+            audio.copy()
         )
 
-        if len(samples) == 0:
-            st.error("No audio samples were received.")
-            return None
+    except Exception:
+        pass
 
-        # -------------------------------------------------
-        # Stereo -> Mono
-        # -------------------------------------------------
-
-        if channels > 1:
-            usable_length = (
-                len(samples) // channels
-            ) * channels
-
-            samples = samples[:usable_length]
-
-            samples = samples.reshape(
-                -1,
-                channels
-            )
-
-            samples = samples.mean(axis=1)
-
-        samples = samples.astype(np.float32)
-
-        # -------------------------------------------------
-        # Resample -> 16000 Hz
-        # -------------------------------------------------
-
-        target_rate = 16000
-
-        if original_rate != target_rate:
-            old_length = len(samples)
-
-            new_length = int(
-                old_length
-                * target_rate
-                / original_rate
-            )
-
-            if new_length <= 0:
-                st.error("Audio is too short.")
-                return None
-
-            old_positions = np.linspace(
-                0,
-                1,
-                old_length
-            )
-
-            new_positions = np.linspace(
-                0,
-                1,
-                new_length
-            )
-
-            samples = np.interp(
-                new_positions,
-                old_positions,
-                samples
-            )
-
-        # -------------------------------------------------
-        # Convert -> 16-bit PCM
-        # -------------------------------------------------
-
-        samples = np.clip(
-            samples,
-            -32768,
-            32767
-        ).astype(np.int16)
-
-        # -------------------------------------------------
-        # Create WAV
-        # -------------------------------------------------
-
-        output_buffer = io.BytesIO()
-
-        with wave.open(
-            output_buffer,
-            "wb"
-        ) as output_wav:
-
-            output_wav.setnchannels(1)
-            output_wav.setsampwidth(2)
-            output_wav.setframerate(16000)
-
-            output_wav.writeframes(
-                samples.tobytes()
-            )
-
-        output_buffer.seek(0)
-
-        return output_buffer.getvalue()
-
-    except Exception as e:
-        st.error(
-            f"Audio processing error: {e}"
-        )
-        return None
-
-
-# =========================================================
-# SPEECH TO TEXT
-# =========================================================
-
-def recognize_audio(audio_file):
-    client = get_groq_client()
-
-    if client is None:
-        st.error(
-            "GROQ_API_KEY is missing. "
-            "Please add GROQ_API_KEY to Streamlit Secrets."
-        )
-        return None
-
-    try:
-        # Get microphone audio
-        audio_bytes = audio_file.getvalue()
-
-        if not audio_bytes:
-            st.error(
-                "No audio was received from the microphone."
-            )
-            return None
-
-        # Normalize audio
-        normalized_audio = normalize_audio(
-            audio_bytes
-        )
-
-        if normalized_audio is None:
-            return None
-
-        # -------------------------------------------------
-        # Check duration
-        # -------------------------------------------------
-
-        with wave.open(
-            io.BytesIO(normalized_audio),
-            "rb"
-        ) as wav:
-
-            frames = wav.getnframes()
-            rate = wav.getframerate()
-
-            duration = frames / float(rate)
-
-        if duration < 1:
-            st.warning(
-                "Please speak for at least 1 second."
-            )
-            return None
-
-        if duration > 60:
-            st.warning(
-                "Please keep your question under 60 seconds."
-            )
-            return None
-
-        # -------------------------------------------------
-        # GROQ WHISPER
-        # -------------------------------------------------
-
-        result = client.audio.transcriptions.create(
-            file=(
-                "voice_question.wav",
-                normalized_audio,
-                "audio/wav"
-            ),
-            model="whisper-large-v3",
-            language="en",
-            response_format="json",
-            temperature=0
-        )
-
-        text = result.text.strip()
-
-        if not text:
-            st.warning(
-                "No speech was detected. "
-                "Please speak clearly and try again."
-            )
-            return None
-
-        return text
-
-    except Exception as e:
-        st.error(
-            f"Speech recognition error: {e}"
-        )
-        return None
+    return frame
 
 
 # =========================================================
@@ -306,44 +122,152 @@ def recognize_audio(audio_file):
 
 st.write("### 🎙️ Record Your Question")
 
-audio_file = st.audio_input(
-    "🎤 Click to record",
-    sample_rate=16000,
-    key="voice_question"
+ctx = webrtc_streamer(
+    key="voice_assistant",
+    mode=WebRtcMode.SENDONLY,
+    audio_frame_callback=audio_callback,
+    media_stream_constraints={
+        "audio": True,
+        "video": False
+    },
+    async_processing=True
 )
 
 
 # =========================================================
-# PROCESS RECORDING
+# PROCESS AUDIO
 # =========================================================
 
-if audio_file:
+if not ctx.state.playing and st.session_state.audio_frames:
 
     st.success(
-        "✅ Recording received successfully!"
+        "✅ Recording received!"
     )
+
+    audio_data = np.concatenate(
+        st.session_state.audio_frames,
+        axis=1
+    )
+
+    st.session_state.audio_frames = []
+
+
+    # -----------------------------------------------------
+    # Convert audio to mono
+    # -----------------------------------------------------
+
+    if len(audio_data.shape) > 1:
+
+        if audio_data.shape[0] > 1:
+            audio_data = np.mean(
+                audio_data,
+                axis=0
+            )
+
+        else:
+            audio_data = audio_data[0]
+
+
+    # -----------------------------------------------------
+    # Convert to int16
+    # -----------------------------------------------------
+
+    audio_data = np.clip(
+        audio_data,
+        -32768,
+        32767
+    ).astype(np.int16)
+
+
+    # -----------------------------------------------------
+    # Create WAV
+    # -----------------------------------------------------
+
+    sample_rate = 48000
+
+    wav_buffer = io.BytesIO()
+
+    with wave.open(
+        wav_buffer,
+        "wb"
+    ) as wav_file:
+
+        wav_file.setnchannels(1)
+        wav_file.setsampwidth(2)
+        wav_file.setframerate(sample_rate)
+
+        wav_file.writeframes(
+            audio_data.tobytes()
+        )
+
+    wav_buffer.seek(0)
+
+    wav_bytes = wav_buffer.getvalue()
+
+
+    # =====================================================
+    # SHOW RECORDING
+    # =====================================================
 
     st.write("### 🎧 Your Recording")
 
     st.audio(
-        audio_file,
+        wav_bytes,
         format="audio/wav"
     )
 
-    # -----------------------------------------------------
-    # Speech -> Text
-    # -----------------------------------------------------
+
+    # =====================================================
+    # SPEECH TO TEXT
+    # =====================================================
 
     with st.spinner(
         "🎧 Converting your voice to text..."
     ):
-        user_text = recognize_audio(
-            audio_file
-        )
 
-    # -----------------------------------------------------
-    # Display Question
-    # -----------------------------------------------------
+        try:
+
+            client = get_groq_client()
+
+            if client is None:
+
+                st.error(
+                    "GROQ_API_KEY is missing. "
+                    "Please add GROQ_API_KEY to "
+                    "Streamlit Secrets."
+                )
+
+                st.stop()
+
+
+            result = client.audio.transcriptions.create(
+                file=(
+                    "voice_question.wav",
+                    wav_bytes,
+                    "audio/wav"
+                ),
+                model="whisper-large-v3",
+                language="en",
+                response_format="json",
+                temperature=0
+            )
+
+
+            user_text = result.text.strip()
+
+
+        except Exception as e:
+
+            st.error(
+                f"Speech recognition error: {e}"
+            )
+
+            user_text = ""
+
+
+    # =====================================================
+    # SHOW QUESTION
+    # =====================================================
 
     if user_text:
 
@@ -351,6 +275,39 @@ if audio_file:
 
         st.success(user_text)
 
-        # -------------------------------------------------
-        # AI
+
+        # =================================================
+        # AI ANSWER
+        # =================================================
+
+        with st.spinner(
+            "🤖 AI is thinking..."
+        ):
+
+            ai_response = ask_ai(
+                user_text,
+                language="English"
+            )
+
+
+        st.write("### 🤖 AI Answer")
+
+        st.write(ai_response)
+
+
+        # =================================================
+        # VOICE ANSWER
+        # =================================================
+
+        st.write("### 🔊 AI Voice Answer")
+
+        speak(ai_response)
+
+
+    else:
+
+        st.warning(
+            "No speech was detected. "
+            "Please try recording again."
+        )
 
