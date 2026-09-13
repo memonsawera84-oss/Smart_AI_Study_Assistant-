@@ -6,7 +6,8 @@ from dotenv import load_dotenv
 import os
 import io
 import wave
-import numpy as np
+
+from st_audiorec import st_audiorec
 
 from utils.ai_engine import ask_ai
 
@@ -53,8 +54,8 @@ st.write(
 )
 
 st.info(
-    "🎙️ Click the microphone button, "
-    "speak your question clearly, then stop recording."
+    "🎙️ Click START, allow microphone access, "
+    "speak your question, then click STOP."
 )
 
 
@@ -91,57 +92,30 @@ def speak(text):
 
 
 # ==========================================
-# AUDIO ANALYSIS
+# AUDIO VALIDATION
 # ==========================================
 
-def analyze_audio(audio_bytes):
+def validate_audio(audio_bytes):
 
     try:
 
-        wav_buffer = io.BytesIO(audio_bytes)
+        with wave.open(
+            io.BytesIO(audio_bytes),
+            "rb"
+        ) as wav:
 
-        with wave.open(wav_buffer, "rb") as wav:
-
-            channels = wav.getnchannels()
-            sample_width = wav.getsampwidth()
             sample_rate = wav.getframerate()
             frames = wav.getnframes()
+            channels = wav.getnchannels()
 
             duration = frames / float(sample_rate)
 
-            raw_audio = wav.readframes(frames)
-
-        # ----------------------------------
-        # Calculate audio volume
-        # ----------------------------------
-
-        rms = 0
-
-        if sample_width == 2:
-
-            samples = np.frombuffer(
-                raw_audio,
-                dtype=np.int16
-            )
-
-            if len(samples) > 0:
-
-                rms = float(
-                    np.sqrt(
-                        np.mean(
-                            samples.astype(np.float64) ** 2
-                        )
-                    )
-                )
-
-        return {
-            "channels": channels,
-            "sample_width": sample_width,
-            "sample_rate": sample_rate,
-            "frames": frames,
-            "duration": duration,
-            "rms": rms
-        }
+            return {
+                "sample_rate": sample_rate,
+                "frames": frames,
+                "channels": channels,
+                "duration": duration
+            }
 
     except Exception as e:
 
@@ -156,7 +130,7 @@ def analyze_audio(audio_bytes):
 # SPEECH TO TEXT
 # ==========================================
 
-def recognize_audio(audio_file):
+def recognize_audio(audio_bytes):
 
     client = get_groq_client()
 
@@ -171,12 +145,6 @@ def recognize_audio(audio_file):
 
     try:
 
-        # ----------------------------------
-        # Get complete WAV bytes
-        # ----------------------------------
-
-        audio_bytes = audio_file.getvalue()
-
         if not audio_bytes:
 
             st.warning(
@@ -186,20 +154,15 @@ def recognize_audio(audio_file):
             return None
 
         # ----------------------------------
-        # Analyze recording
+        # Validate WAV
         # ----------------------------------
 
-        info = analyze_audio(audio_bytes)
+        info = validate_audio(audio_bytes)
 
         if info is None:
             return None
 
         duration = info["duration"]
-        rms = info["rms"]
-
-        # ----------------------------------
-        # Recording too short
-        # ----------------------------------
 
         if duration < 0.8:
 
@@ -210,29 +173,11 @@ def recognize_audio(audio_file):
 
             return None
 
-        # ----------------------------------
-        # Recording too long
-        # ----------------------------------
-
         if duration > 60:
 
             st.warning(
                 "Recording is too long. "
                 "Please keep your question under 60 seconds."
-            )
-
-            return None
-
-        # ----------------------------------
-        # Detect silent microphone
-        # ----------------------------------
-
-        if rms < 150:
-
-            st.error(
-                "⚠️ The Cloud app received almost silent audio. "
-                "Please allow microphone access in your browser "
-                "and try again."
             )
 
             return None
@@ -254,8 +199,8 @@ def recognize_audio(audio_file):
             language="en",
 
             prompt=(
-                "This is a student's English study question "
-                "for an AI study assistant. "
+                "This is an English question from a student "
+                "using an AI study assistant. "
                 "Transcribe exactly what the student says."
             ),
 
@@ -264,16 +209,12 @@ def recognize_audio(audio_file):
             temperature=0.0
         )
 
-        # ----------------------------------
-        # Extract transcription
-        # ----------------------------------
-
         text = transcription.text.strip()
 
         if not text:
 
             st.warning(
-                "No speech was detected. "
+                "I could not detect speech. "
                 "Please speak clearly and try again."
             )
 
@@ -291,42 +232,37 @@ def recognize_audio(audio_file):
 
 
 # ==========================================
-# MICROPHONE
+# BROWSER MICROPHONE RECORDER
 # ==========================================
 
-audio_file = st.audio_input(
+st.write("### 🎙️ Record Your Question")
 
-    "🎤 Record your question",
-
-    sample_rate=16000,
-
-    key="voice_question"
-)
+audio_data = st_audiorec()
 
 
 # ==========================================
 # PROCESS RECORDING
 # ==========================================
 
-if audio_file:
+if audio_data:
 
     st.success(
-        "✅ Recording received!"
+        "✅ Recording received successfully!"
     )
 
     # --------------------------------------
-    # Play EXACT recording received by Cloud
+    # PLAY USER RECORDING
     # --------------------------------------
 
     st.write("### 🎧 Your Recording")
 
     st.audio(
-        audio_file,
+        audio_data,
         format="audio/wav"
     )
 
     # --------------------------------------
-    # Speech recognition
+    # SPEECH TO TEXT
     # --------------------------------------
 
     with st.spinner(
@@ -334,18 +270,22 @@ if audio_file:
     ):
 
         user_text = recognize_audio(
-            audio_file
+            audio_data
         )
 
     # --------------------------------------
-    # AI RESPONSE
+    # SHOW TRANSCRIPT
     # --------------------------------------
 
     if user_text:
 
-        st.write("### 🎤 You")
+        st.write("### 🎤 You Said")
 
         st.success(user_text)
+
+        # ----------------------------------
+        # AI RESPONSE
+        # ----------------------------------
 
         with st.spinner(
             "🤖 AI is thinking..."
@@ -356,7 +296,11 @@ if audio_file:
                 language="English"
             )
 
-        st.write("### 🤖 AI")
+        # ----------------------------------
+        # SHOW AI RESPONSE
+        # ----------------------------------
+
+        st.write("### 🤖 AI Answer")
 
         st.write(ai_response)
 
@@ -364,7 +308,7 @@ if audio_file:
         # AI VOICE
         # ----------------------------------
 
-        st.write("### 🔊 AI Voice")
+        st.write("### 🔊 AI Voice Answer")
 
         speak(ai_response)
 
@@ -372,5 +316,5 @@ if audio_file:
 
         st.warning(
             "Please record your question again "
-            "and speak clearly into your microphone."
+            "and speak clearly into the microphone."
         )

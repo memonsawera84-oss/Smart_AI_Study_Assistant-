@@ -10,3 +10,4 @@ easyocr
 Pillow
 langchain-text-splitters
 sentence-transformers
+streamlit-audiorec
