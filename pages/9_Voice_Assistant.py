@@ -2,8 +2,7 @@ import streamlit as st
 st.title("🎤 Advanced Voice Assistant")
 
 st.info(
-    "Voice-based study interaction — currently under enhancement "
-    "for broader cloud and browser compatibility."
+    "🚀 Advanced voice features are coming soon."
 )
 import streamlit as st
 from streamlit_webrtc import webrtc_streamer, WebRtcMode
