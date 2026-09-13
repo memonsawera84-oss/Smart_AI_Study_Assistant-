@@ -1,16 +1,15 @@
 import streamlit as st
 from streamlit_webrtc import webrtc_streamer, WebRtcMode
+from aiortc.contrib.media import MediaRecorder
+
 from groq import Groq
 from gtts import gTTS
 from dotenv import load_dotenv
 
 import os
 import io
-import wave
-import queue
-import threading
-import av
-import numpy as np
+import tempfile
+import time
 
 from utils.ai_engine import ask_ai
 
@@ -27,13 +26,16 @@ load_dotenv()
 # =========================================================
 
 def get_groq_client():
+
     api_key = None
 
+    # Streamlit Cloud Secrets
     try:
         api_key = st.secrets.get("GROQ_API_KEY")
     except Exception:
         pass
 
+    # Local .env
     if not api_key:
         api_key = os.getenv("GROQ_API_KEY")
 
@@ -54,67 +56,28 @@ st.write(
 )
 
 st.info(
-    "🎙️ Click START, allow microphone access, "
-    "speak your question clearly, then click STOP."
+    "🎙️ Click START → allow microphone access → "
+    "speak your question → click STOP."
 )
 
 
 # =========================================================
-# TEXT TO SPEECH
+# CREATE TEMP AUDIO FILE
 # =========================================================
 
-def speak(text):
-    try:
-        tts = gTTS(
-            text=text,
-            lang="en",
-            slow=False
-        )
+if "voice_file" not in st.session_state:
 
-        audio_buffer = io.BytesIO()
+    temp_file = tempfile.NamedTemporaryFile(
+        suffix=".wav",
+        delete=False
+    )
 
-        tts.write_to_fp(audio_buffer)
+    temp_file.close()
 
-        audio_buffer.seek(0)
-
-        st.audio(
-            audio_buffer,
-            format="audio/mp3"
-        )
-
-    except Exception as e:
-        st.error(
-            f"Voice output error: {e}"
-        )
+    st.session_state.voice_file = temp_file.name
 
 
-# =========================================================
-# THREAD-SAFE AUDIO QUEUE
-# =========================================================
-
-audio_queue = queue.Queue()
-
-
-# =========================================================
-# AUDIO CALLBACK
-# =========================================================
-
-def audio_callback(frame: av.AudioFrame):
-
-    try:
-        audio = frame.to_ndarray()
-
-        audio_queue.put(
-            (
-                audio.copy(),
-                frame.sample_rate
-            )
-        )
-
-    except Exception:
-        pass
-
-    return frame
+voice_file = st.session_state.voice_file
 
 
 # =========================================================
@@ -123,21 +86,29 @@ def audio_callback(frame: av.AudioFrame):
 
 st.write("### 🎙️ Record Your Question")
 
+
+MEDIA_STREAM_CONSTRAINTS = {
+    "video": False,
+    "audio": {
+        "echoCancellation": True,
+        "noiseSuppression": True,
+        "autoGainControl": True,
+    },
+}
+
+
+def recorder_factory():
+
+    return MediaRecorder(
+        voice_file
+    )
+
+
 ctx = webrtc_streamer(
-    key="voice_assistant",
+
+    key="smart-ai-voice-assistant",
 
     mode=WebRtcMode.SENDONLY,
-
-    audio_frame_callback=audio_callback,
-
-    media_stream_constraints={
-        "audio": {
-            "echoCancellation": True,
-            "noiseSuppression": True,
-            "autoGainControl": True
-        },
-        "video": False
-    },
 
     rtc_configuration={
         "iceServers": [
@@ -149,151 +120,48 @@ ctx = webrtc_streamer(
         ]
     },
 
-    async_processing=True
+    media_stream_constraints=MEDIA_STREAM_CONSTRAINTS,
+
+    in_recorder_factory=recorder_factory,
+
+    async_processing=True,
 )
 
 
 # =========================================================
-# PROCESS AFTER RECORDING
+# STATUS
 # =========================================================
 
-if not ctx.state.playing:
+if ctx.state.playing:
 
-    collected_audio = []
+    st.success(
+        "🔴 Recording... Speak your question now."
+    )
 
-    sample_rate = None
+else:
 
-    while not audio_queue.empty():
-
-        try:
-            audio, rate = audio_queue.get_nowait()
-
-            collected_audio.append(audio)
-
-            if rate:
-                sample_rate = rate
-
-        except queue.Empty:
-            break
+    st.info(
+        "🎙️ Click START to begin recording."
+    )
 
 
-    # =====================================================
-    # NO AUDIO
-    # =====================================================
+# =========================================================
+# PROCESS AFTER STOP
+# =========================================================
 
-    if not collected_audio:
+if (
+    not ctx.state.playing
+    and os.path.exists(voice_file)
+):
 
-        st.info(
-            "🎙️ Click START and speak your question."
-        )
+    file_size = os.path.getsize(voice_file)
 
-    else:
+    # Ignore empty/new file
+    if file_size > 1000:
 
         st.success(
             "✅ Recording received!"
         )
-
-
-        # =================================================
-        # COMBINE AUDIO FRAMES
-        # =================================================
-
-        try:
-
-            audio_data = np.concatenate(
-                collected_audio,
-                axis=1
-            )
-
-        except Exception:
-
-            st.error(
-                "Could not combine microphone audio."
-            )
-
-            st.stop()
-
-
-        # =================================================
-        # CONVERT TO MONO
-        # =================================================
-
-        if audio_data.ndim > 1:
-
-            if audio_data.shape[0] > 1:
-
-                audio_data = np.mean(
-                    audio_data,
-                    axis=0
-                )
-
-            else:
-
-                audio_data = audio_data[0]
-
-
-        # =================================================
-        # NORMALIZE AUDIO
-        # =================================================
-
-        audio_data = audio_data.astype(
-            np.float32
-        )
-
-        max_value = np.max(
-            np.abs(audio_data)
-        )
-
-        if max_value > 0:
-
-            audio_data = (
-                audio_data / max_value
-            ) * 32767
-
-
-        audio_data = np.clip(
-            audio_data,
-            -32768,
-            32767
-        ).astype(np.int16)
-
-
-        # =================================================
-        # SAMPLE RATE
-        # =================================================
-
-        if not sample_rate:
-
-            sample_rate = 48000
-
-
-        # =================================================
-        # CREATE WAV
-        # =================================================
-
-        wav_buffer = io.BytesIO()
-
-        with wave.open(
-            wav_buffer,
-            "wb"
-        ) as wav_file:
-
-            wav_file.setnchannels(1)
-
-            wav_file.setsampwidth(2)
-
-            wav_file.setframerate(
-                sample_rate
-            )
-
-            wav_file.writeframes(
-                audio_data.tobytes()
-            )
-
-
-        wav_buffer.seek(0)
-
-        wav_bytes = wav_buffer.getvalue()
 
 
         # =================================================
@@ -302,8 +170,15 @@ if not ctx.state.playing:
 
         st.write("### 🎧 Your Recording")
 
+        with open(
+            voice_file,
+            "rb"
+        ) as audio_file:
+
+            audio_bytes = audio_file.read()
+
         st.audio(
-            wav_bytes,
+            audio_bytes,
             format="audio/wav"
         )
 
@@ -331,27 +206,30 @@ if not ctx.state.playing:
                     st.stop()
 
 
-                result = client.audio.transcriptions.create(
+                with open(
+                    voice_file,
+                    "rb"
+                ) as audio_file:
 
-                    file=(
-                        "voice_question.wav",
-                        wav_bytes,
-                        "audio/wav"
-                    ),
+                    result = client.audio.transcriptions.create(
 
-                    model="whisper-large-v3",
+                        file=(
+                            "voice_question.wav",
+                            audio_file.read(),
+                            "audio/wav"
+                        ),
 
-                    language="en",
+                        model="whisper-large-v3",
 
-                    response_format="json",
+                        language="en",
 
-                    temperature=0
-                )
+                        response_format="json",
+
+                        temperature=0
+                    )
 
 
-                user_text = (
-                    result.text.strip()
-                )
+                user_text = result.text.strip()
 
 
             except Exception as e:
@@ -364,7 +242,7 @@ if not ctx.state.playing:
 
 
         # =================================================
-        # SHOW TRANSCRIPTION
+        # SHOW QUESTION
         # =================================================
 
         if user_text:
@@ -376,18 +254,26 @@ if not ctx.state.playing:
             )
 
 
-            # =============================================
+            # =================================================
             # AI ANSWER
-            # =============================================
+            # =================================================
 
             with st.spinner(
                 "🤖 AI is thinking..."
             ):
 
-                ai_response = ask_ai(
-                    user_text,
-                    language="English"
-                )
+                try:
+
+                    ai_response = ask_ai(
+                        user_text,
+                        language="English"
+                    )
+
+                except Exception as e:
+
+                    ai_response = (
+                        f"AI response error: {e}"
+                    )
 
 
             st.write("### 🤖 AI Answer")
@@ -397,22 +283,68 @@ if not ctx.state.playing:
             )
 
 
-            # =============================================
-            # VOICE ANSWER
-            # =============================================
+            # =================================================
+            # TEXT TO SPEECH
+            # =================================================
 
             st.write(
                 "### 🔊 AI Voice Answer"
             )
 
-            speak(
-                ai_response
-            )
+            with st.spinner(
+                "🔊 Creating voice answer..."
+            ):
+
+                try:
+
+                    tts = gTTS(
+                        text=ai_response,
+                        lang="en",
+                        slow=False
+                    )
+
+                    audio_output = io.BytesIO()
+
+                    tts.write_to_fp(
+                        audio_output
+                    )
+
+                    audio_output.seek(0)
+
+                    st.audio(
+                        audio_output,
+                        format="audio/mp3"
+                    )
+
+                except Exception as e:
+
+                    st.error(
+                        f"Voice output error: {e}"
+                    )
 
 
         else:
 
             st.warning(
                 "No speech was detected. "
-                "Please record your question again."
+                "Please click START and record your question again."
             )
+
+
+# =========================================================
+# CLEANUP
+# =========================================================
+
+if os.path.exists(voice_file):
+
+    try:
+
+        # Keep the file during the current page session.
+        # It will be replaced when the page is refreshed.
+
+        pass
+
+    except Exception:
+
+        pass
+
