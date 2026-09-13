@@ -11,3 +11,4 @@ Pillow
 langchain-text-splitters
 sentence-transformers
 streamlit-webrtc
+pandas

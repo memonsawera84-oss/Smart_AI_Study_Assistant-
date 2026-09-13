@@ -1,3 +1,9 @@
+st.title("🎤 Advanced Voice Assistant")
+
+st.info(
+    "Voice-based study interaction — currently under enhancement "
+    "for broader cloud and browser compatibility."
+)
 import streamlit as st
 from streamlit_webrtc import webrtc_streamer, WebRtcMode
 from aiortc.contrib.media import MediaRecorder
