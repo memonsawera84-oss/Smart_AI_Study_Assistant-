@@ -1,18 +1,27 @@
 import streamlit as st
 from groq import Groq
 from gtts import gTTS
-import tempfile
+from dotenv import load_dotenv
 import os
+import io
+import wave
 
 from utils.ai_engine import ask_ai
 
 
-# ==============================
+# ==========================================
+# LOAD LOCAL ENVIRONMENT
+# ==========================================
+
+load_dotenv()
+
+
+# ==========================================
 # GROQ CLIENT
-# ==============================
+# ==========================================
 
 def get_groq_client():
-    """Create Groq client using Streamlit Cloud Secrets or local .env."""
+    """Create Groq client from Streamlit Secrets or local .env."""
 
     api_key = None
 
@@ -22,7 +31,7 @@ def get_groq_client():
     except Exception:
         pass
 
-    # Local .env
+    # Local environment
     if not api_key:
         api_key = os.getenv("GROQ_API_KEY")
 
@@ -32,39 +41,42 @@ def get_groq_client():
     return Groq(api_key=api_key)
 
 
-# ==============================
-# PAGE TITLE
-# ==============================
+# ==========================================
+# PAGE
+# ==========================================
 
 st.title("🎤 Smart AI Voice Assistant")
 
 st.write("Ask your question using your voice.")
 
-st.info("🎙️ Click the microphone button below and speak clearly.")
+st.info(
+    "🎙️ Click the microphone button, speak your question clearly, "
+    "then stop recording."
+)
 
 
-# ==============================
+# ==========================================
 # TEXT TO SPEECH
-# ==============================
+# ==========================================
 
 def speak(text):
-    """Convert AI response into speech."""
+    """Convert AI response to spoken English."""
 
     try:
         tts = gTTS(
             text=text,
-            lang="en"
+            lang="en",
+            slow=False
         )
 
-        temp = tempfile.NamedTemporaryFile(
-            delete=False,
-            suffix=".mp3"
-        )
+        audio_buffer = io.BytesIO()
 
-        tts.save(temp.name)
+        tts.write_to_fp(audio_buffer)
+
+        audio_buffer.seek(0)
 
         st.audio(
-            temp.name,
+            audio_buffer,
             format="audio/mp3"
         )
 
@@ -72,28 +84,98 @@ def speak(text):
         st.error(f"Voice output error: {e}")
 
 
-# ==============================
+# ==========================================
+# VALIDATE WAV
+# ==========================================
+
+def validate_audio(audio_bytes):
+    """Check whether Streamlit microphone produced a valid WAV."""
+
+    try:
+        with wave.open(io.BytesIO(audio_bytes), "rb") as wav:
+
+            channels = wav.getnchannels()
+            sample_width = wav.getsampwidth()
+            sample_rate = wav.getframerate()
+            frames = wav.getnframes()
+
+            duration = frames / float(sample_rate)
+
+            return {
+                "channels": channels,
+                "sample_width": sample_width,
+                "sample_rate": sample_rate,
+                "frames": frames,
+                "duration": duration
+            }
+
+    except Exception as e:
+        st.error(f"Invalid audio recording: {e}")
+        return None
+
+
+# ==========================================
 # SPEECH TO TEXT
-# ==============================
+# ==========================================
 
 def recognize_audio(audio_file):
-    """Convert recorded voice to text using Groq Whisper."""
 
     client = get_groq_client()
 
     if client is None:
         st.error(
             "GROQ_API_KEY is not configured. "
-            "Please add it to Streamlit Secrets."
+            "Please add GROQ_API_KEY to Streamlit Secrets."
         )
         return None
 
     try:
 
-        # Get recorded WAV bytes
+        # --------------------------------------
+        # Read microphone recording
+        # --------------------------------------
+
         audio_bytes = audio_file.getvalue()
 
-        # Send audio directly to Groq Whisper
+        if not audio_bytes:
+            st.warning("No audio was recorded.")
+            return None
+
+        # --------------------------------------
+        # Validate WAV
+        # --------------------------------------
+
+        info = validate_audio(audio_bytes)
+
+        if info is None:
+            return None
+
+        # --------------------------------------
+        # Check recording duration
+        # --------------------------------------
+
+        if info["duration"] < 0.7:
+
+            st.warning(
+                "Recording is too short. "
+                "Please speak for at least one second."
+            )
+
+            return None
+
+        if info["duration"] > 60:
+
+            st.warning(
+                "Recording is too long. "
+                "Please keep your question under 60 seconds."
+            )
+
+            return None
+
+        # --------------------------------------
+        # Send WAV to Groq Whisper
+        # --------------------------------------
+
         transcription = client.audio.transcriptions.create(
             file=(
                 "voice_question.wav",
@@ -105,16 +187,22 @@ def recognize_audio(audio_file):
             temperature=0.0
         )
 
+        # --------------------------------------
+        # Get text
+        # --------------------------------------
+
         text = transcription.text.strip()
 
-        if text:
-            return text
+        if not text:
 
-        st.warning(
-            "No speech was detected. Please speak clearly and try again."
-        )
+            st.warning(
+                "I could not detect any speech. "
+                "Please speak clearly and try again."
+            )
 
-        return None
+            return None
+
+        return text
 
     except Exception as e:
 
@@ -125,9 +213,9 @@ def recognize_audio(audio_file):
         return None
 
 
-# ==============================
+# ==========================================
 # MICROPHONE
-# ==============================
+# ==========================================
 
 audio_file = st.audio_input(
     "🎤 Record your question",
@@ -135,47 +223,55 @@ audio_file = st.audio_input(
 )
 
 
-# ==============================
-# PROCESS VOICE
-# ==============================
+# ==========================================
+# PROCESS RECORDING
+# ==========================================
 
 if audio_file:
 
     st.success("✅ Recording received!")
 
+    # Show recorded audio
     st.audio(audio_file)
 
-    with st.spinner("🎧 Converting your voice to text..."):
+    # --------------------------------------
+    # Speech to Text
+    # --------------------------------------
+
+    with st.spinner(
+        "🎧 Listening and converting your voice to text..."
+    ):
 
         user_text = recognize_audio(audio_file)
 
-
-    # ==============================
-    # USER QUESTION
-    # ==============================
+    # --------------------------------------
+    # If speech detected
+    # --------------------------------------
 
     if user_text:
 
         st.write("### 🎤 You")
         st.write(user_text)
 
-
-        # ==============================
+        # ----------------------------------
         # AI RESPONSE
-        # ==============================
+        # ----------------------------------
 
-        with st.spinner("🤖 AI is thinking..."):
+        with st.spinner(
+            "🤖 AI is thinking..."
+        ):
 
-            ai_response = ask_ai(user_text)
-
+            ai_response = ask_ai(
+                user_text,
+                language="English"
+            )
 
         st.write("### 🤖 AI")
         st.write(ai_response)
 
-
-        # ==============================
+        # ----------------------------------
         # AI VOICE
-        # ==============================
+        # ----------------------------------
 
         st.write("### 🔊 AI Voice")
 
@@ -184,5 +280,6 @@ if audio_file:
     else:
 
         st.warning(
-            "Please try recording again and speak clearly."
+            "Please record your question again "
+            "and speak clearly into your microphone."
         )
