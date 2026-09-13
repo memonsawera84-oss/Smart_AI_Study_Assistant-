@@ -2,15 +2,17 @@ import streamlit as st
 from groq import Groq
 from gtts import gTTS
 from dotenv import load_dotenv
+
 import os
 import io
 import wave
+import numpy as np
 
 from utils.ai_engine import ask_ai
 
 
 # ==========================================
-# LOAD LOCAL ENVIRONMENT
+# LOAD ENVIRONMENT
 # ==========================================
 
 load_dotenv()
@@ -21,17 +23,16 @@ load_dotenv()
 # ==========================================
 
 def get_groq_client():
-    """Create Groq client from Streamlit Secrets or local .env."""
 
     api_key = None
 
-    # Streamlit Cloud
+    # Streamlit Cloud Secrets
     try:
         api_key = st.secrets.get("GROQ_API_KEY")
     except Exception:
         pass
 
-    # Local environment
+    # Local .env
     if not api_key:
         api_key = os.getenv("GROQ_API_KEY")
 
@@ -47,11 +48,13 @@ def get_groq_client():
 
 st.title("🎤 Smart AI Voice Assistant")
 
-st.write("Ask your question using your voice.")
+st.write(
+    "Ask your question using your voice."
+)
 
 st.info(
-    "🎙️ Click the microphone button, speak your question clearly, "
-    "then stop recording."
+    "🎙️ Click the microphone button, "
+    "speak your question clearly, then stop recording."
 )
 
 
@@ -60,9 +63,9 @@ st.info(
 # ==========================================
 
 def speak(text):
-    """Convert AI response to spoken English."""
 
     try:
+
         tts = gTTS(
             text=text,
             lang="en",
@@ -81,18 +84,23 @@ def speak(text):
         )
 
     except Exception as e:
-        st.error(f"Voice output error: {e}")
+
+        st.error(
+            f"Voice output error: {e}"
+        )
 
 
 # ==========================================
-# VALIDATE WAV
+# AUDIO ANALYSIS
 # ==========================================
 
-def validate_audio(audio_bytes):
-    """Check whether Streamlit microphone produced a valid WAV."""
+def analyze_audio(audio_bytes):
 
     try:
-        with wave.open(io.BytesIO(audio_bytes), "rb") as wav:
+
+        wav_buffer = io.BytesIO(audio_bytes)
+
+        with wave.open(wav_buffer, "rb") as wav:
 
             channels = wav.getnchannels()
             sample_width = wav.getsampwidth()
@@ -101,16 +109,46 @@ def validate_audio(audio_bytes):
 
             duration = frames / float(sample_rate)
 
-            return {
-                "channels": channels,
-                "sample_width": sample_width,
-                "sample_rate": sample_rate,
-                "frames": frames,
-                "duration": duration
-            }
+            raw_audio = wav.readframes(frames)
+
+        # ----------------------------------
+        # Calculate audio volume
+        # ----------------------------------
+
+        rms = 0
+
+        if sample_width == 2:
+
+            samples = np.frombuffer(
+                raw_audio,
+                dtype=np.int16
+            )
+
+            if len(samples) > 0:
+
+                rms = float(
+                    np.sqrt(
+                        np.mean(
+                            samples.astype(np.float64) ** 2
+                        )
+                    )
+                )
+
+        return {
+            "channels": channels,
+            "sample_width": sample_width,
+            "sample_rate": sample_rate,
+            "frames": frames,
+            "duration": duration,
+            "rms": rms
+        }
 
     except Exception as e:
-        st.error(f"Invalid audio recording: {e}")
+
+        st.error(
+            f"Audio validation error: {e}"
+        )
+
         return None
 
 
@@ -123,47 +161,60 @@ def recognize_audio(audio_file):
     client = get_groq_client()
 
     if client is None:
+
         st.error(
-            "GROQ_API_KEY is not configured. "
-            "Please add GROQ_API_KEY to Streamlit Secrets."
+            "GROQ_API_KEY is missing. "
+            "Please add it to Streamlit Secrets."
         )
+
         return None
 
     try:
 
-        # --------------------------------------
-        # Read microphone recording
-        # --------------------------------------
+        # ----------------------------------
+        # Get complete WAV bytes
+        # ----------------------------------
 
         audio_bytes = audio_file.getvalue()
 
         if not audio_bytes:
-            st.warning("No audio was recorded.")
-            return None
-
-        # --------------------------------------
-        # Validate WAV
-        # --------------------------------------
-
-        info = validate_audio(audio_bytes)
-
-        if info is None:
-            return None
-
-        # --------------------------------------
-        # Check recording duration
-        # --------------------------------------
-
-        if info["duration"] < 0.7:
 
             st.warning(
-                "Recording is too short. "
-                "Please speak for at least one second."
+                "No audio was recorded."
             )
 
             return None
 
-        if info["duration"] > 60:
+        # ----------------------------------
+        # Analyze recording
+        # ----------------------------------
+
+        info = analyze_audio(audio_bytes)
+
+        if info is None:
+            return None
+
+        duration = info["duration"]
+        rms = info["rms"]
+
+        # ----------------------------------
+        # Recording too short
+        # ----------------------------------
+
+        if duration < 0.8:
+
+            st.warning(
+                "Recording is too short. "
+                "Please speak for at least 1 second."
+            )
+
+            return None
+
+        # ----------------------------------
+        # Recording too long
+        # ----------------------------------
+
+        if duration > 60:
 
             st.warning(
                 "Recording is too long. "
@@ -172,31 +223,57 @@ def recognize_audio(audio_file):
 
             return None
 
-        # --------------------------------------
-        # Send WAV to Groq Whisper
-        # --------------------------------------
+        # ----------------------------------
+        # Detect silent microphone
+        # ----------------------------------
+
+        if rms < 150:
+
+            st.error(
+                "⚠️ The Cloud app received almost silent audio. "
+                "Please allow microphone access in your browser "
+                "and try again."
+            )
+
+            return None
+
+        # ----------------------------------
+        # GROQ WHISPER
+        # ----------------------------------
 
         transcription = client.audio.transcriptions.create(
+
             file=(
                 "voice_question.wav",
-                audio_bytes
+                audio_bytes,
+                "audio/wav"
             ),
-            model="whisper-large-v3-turbo",
+
+            model="whisper-large-v3",
+
             language="en",
+
+            prompt=(
+                "This is a student's English study question "
+                "for an AI study assistant. "
+                "Transcribe exactly what the student says."
+            ),
+
             response_format="json",
+
             temperature=0.0
         )
 
-        # --------------------------------------
-        # Get text
-        # --------------------------------------
+        # ----------------------------------
+        # Extract transcription
+        # ----------------------------------
 
         text = transcription.text.strip()
 
         if not text:
 
             st.warning(
-                "I could not detect any speech. "
+                "No speech was detected. "
                 "Please speak clearly and try again."
             )
 
@@ -218,8 +295,12 @@ def recognize_audio(audio_file):
 # ==========================================
 
 audio_file = st.audio_input(
+
     "🎤 Record your question",
-    sample_rate=16000
+
+    sample_rate=16000,
+
+    key="voice_question"
 )
 
 
@@ -229,33 +310,42 @@ audio_file = st.audio_input(
 
 if audio_file:
 
-    st.success("✅ Recording received!")
-
-    # Show recorded audio
-    st.audio(audio_file)
+    st.success(
+        "✅ Recording received!"
+    )
 
     # --------------------------------------
-    # Speech to Text
+    # Play EXACT recording received by Cloud
+    # --------------------------------------
+
+    st.write("### 🎧 Your Recording")
+
+    st.audio(
+        audio_file,
+        format="audio/wav"
+    )
+
+    # --------------------------------------
+    # Speech recognition
     # --------------------------------------
 
     with st.spinner(
-        "🎧 Listening and converting your voice to text..."
+        "🎧 Converting your voice to text..."
     ):
 
-        user_text = recognize_audio(audio_file)
+        user_text = recognize_audio(
+            audio_file
+        )
 
     # --------------------------------------
-    # If speech detected
+    # AI RESPONSE
     # --------------------------------------
 
     if user_text:
 
         st.write("### 🎤 You")
-        st.write(user_text)
 
-        # ----------------------------------
-        # AI RESPONSE
-        # ----------------------------------
+        st.success(user_text)
 
         with st.spinner(
             "🤖 AI is thinking..."
@@ -267,6 +357,7 @@ if audio_file:
             )
 
         st.write("### 🤖 AI")
+
         st.write(ai_response)
 
         # ----------------------------------
