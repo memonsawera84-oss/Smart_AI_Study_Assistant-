@@ -223,36 +223,23 @@ def recognize_audio(audio_bytes):
     client = get_groq_client()
 
     if client is None:
-
         st.error(
-            "GROQ_API_KEY is missing. "
-            "Please add it to Streamlit Secrets."
+            "GROQ_API_KEY is missing. Please add it to Streamlit Secrets."
         )
-
         return None
 
     try:
-
         if not audio_bytes:
-
-            st.warning(
-                "No audio was recorded."
-            )
-
+            st.warning("No audio was recorded.")
             return None
 
-        # Convert recorder audio to
-        # 16 kHz mono WAV
-        normalized_audio = normalize_audio(
-            audio_bytes
-        )
+        # Convert recorder audio to 16 kHz mono WAV
+        normalized_audio = normalize_audio(audio_bytes)
 
         if normalized_audio is None:
             return None
 
-        # -------------------------------------------------
-        # Check duration
-        # -------------------------------------------------
+        # Check duration only
         with wave.open(
             io.BytesIO(normalized_audio),
             "rb"
@@ -263,25 +250,45 @@ def recognize_audio(audio_bytes):
 
             duration = frames / float(rate)
 
-            raw_audio = wav.readframes(frames)
-
         if duration < 0.8:
-
             st.warning(
-                "Recording is too short. "
-                "Please speak for at least 1 second."
+                "Recording is too short. Please speak for at least 1 second."
             )
-
             return None
 
         if duration > 60:
-
             st.warning(
-                "Recording is too long. "
-                "Please keep your question under 60 seconds."
+                "Recording is too long. Please keep your question under 60 seconds."
             )
-
             return None
+
+        # Send the ACTUAL audio to Groq Whisper
+        transcription = client.audio.transcriptions.create(
+            file=(
+                "voice_question.wav",
+                normalized_audio,
+                "audio/wav"
+            ),
+            model="whisper-large-v3",
+            language="en",
+            response_format="json",
+            temperature=0.0
+        )
+
+        text = transcription.text.strip()
+
+        if not text:
+            st.warning(
+                "No speech was detected. Please speak clearly and try again."
+            )
+            return None
+
+        return text
+
+    except Exception as e:
+        st.error(f"Speech recognition error: {e}")
+        return None
+
 
         # -------------------------------------------------
         # Check that audio actually contains sound
