@@ -1,9 +1,35 @@
 import streamlit as st
-import speech_recognition as sr
+from groq import Groq
 from gtts import gTTS
 import tempfile
+import os
 
 from utils.ai_engine import ask_ai
+
+
+# ==============================
+# GROQ CLIENT
+# ==============================
+
+def get_groq_client():
+    """Create Groq client using Streamlit Cloud Secrets or local .env."""
+
+    api_key = None
+
+    # Streamlit Cloud
+    try:
+        api_key = st.secrets.get("GROQ_API_KEY")
+    except Exception:
+        pass
+
+    # Local .env
+    if not api_key:
+        api_key = os.getenv("GROQ_API_KEY")
+
+    if not api_key:
+        return None
+
+    return Groq(api_key=api_key)
 
 
 # ==============================
@@ -51,56 +77,51 @@ def speak(text):
 # ==============================
 
 def recognize_audio(audio_file):
-    """Convert recorded audio into text."""
+    """Convert recorded voice to text using Groq Whisper."""
 
-    recognizer = sr.Recognizer()
+    client = get_groq_client()
 
-    try:
-        # Save Streamlit recording
-        with tempfile.NamedTemporaryFile(
-            delete=False,
-            suffix=".wav"
-        ) as temp_audio:
-
-            temp_audio.write(audio_file.getvalue())
-            temp_audio_path = temp_audio.name
-
-        # Read WAV audio
-        with sr.AudioFile(temp_audio_path) as source:
-
-            # Reduce background noise
-            recognizer.adjust_for_ambient_noise(
-                source,
-                duration=0.5
-            )
-
-            audio = recognizer.record(source)
-
-        # Google Speech Recognition
-        text = recognizer.recognize_google(
-            audio,
-            language="en-US"
-        )
-
-        return text
-
-    except sr.UnknownValueError:
-        st.warning(
-            "I could not understand your voice. "
-            "Please speak clearly and try again."
+    if client is None:
+        st.error(
+            "GROQ_API_KEY is not configured. "
+            "Please add it to Streamlit Secrets."
         )
         return None
 
-    except sr.RequestError as e:
-        st.error(
-            f"Speech recognition service error: {e}"
+    try:
+
+        # Get recorded WAV bytes
+        audio_bytes = audio_file.getvalue()
+
+        # Send audio directly to Groq Whisper
+        transcription = client.audio.transcriptions.create(
+            file=(
+                "voice_question.wav",
+                audio_bytes
+            ),
+            model="whisper-large-v3-turbo",
+            language="en",
+            response_format="json",
+            temperature=0.0
         )
+
+        text = transcription.text.strip()
+
+        if text:
+            return text
+
+        st.warning(
+            "No speech was detected. Please speak clearly and try again."
+        )
+
         return None
 
     except Exception as e:
+
         st.error(
-            f"Audio processing error: {e}"
+            f"Speech recognition error: {e}"
         )
+
         return None
 
 
@@ -109,7 +130,8 @@ def recognize_audio(audio_file):
 # ==============================
 
 audio_file = st.audio_input(
-    "🎤 Record your question"
+    "🎤 Record your question",
+    sample_rate=16000
 )
 
 
@@ -158,7 +180,6 @@ if audio_file:
         st.write("### 🔊 AI Voice")
 
         speak(ai_response)
-
 
     else:
 
