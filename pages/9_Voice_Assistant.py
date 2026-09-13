@@ -56,25 +56,27 @@ def recognize_audio(audio_file):
     recognizer = sr.Recognizer()
 
     try:
-
-        # Get recorded audio bytes
-        audio_bytes = audio_file.getvalue()
-
-        # Save recording as WAV file
+        # Save Streamlit recording
         with tempfile.NamedTemporaryFile(
             delete=False,
             suffix=".wav"
         ) as temp_audio:
 
-            temp_audio.write(audio_bytes)
+            temp_audio.write(audio_file.getvalue())
             temp_audio_path = temp_audio.name
 
-        # Read WAV file
+        # Read WAV audio
         with sr.AudioFile(temp_audio_path) as source:
+
+            # Reduce background noise
+            recognizer.adjust_for_ambient_noise(
+                source,
+                duration=0.5
+            )
 
             audio = recognizer.record(source)
 
-        # Convert speech to text
+        # Google Speech Recognition
         text = recognizer.recognize_google(
             audio,
             language="en-US"
@@ -83,28 +85,22 @@ def recognize_audio(audio_file):
         return text
 
     except sr.UnknownValueError:
-
         st.warning(
             "I could not understand your voice. "
             "Please speak clearly and try again."
         )
-
         return None
 
     except sr.RequestError as e:
-
         st.error(
             f"Speech recognition service error: {e}"
         )
-
         return None
 
     except Exception as e:
-
         st.error(
             f"Audio processing error: {e}"
         )
-
         return None
 
 
