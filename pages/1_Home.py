@@ -222,7 +222,7 @@ st.divider()
 
 st.markdown("""
 <div style="text-align:center;color:gray;">
-<h4>👩‍💻 Developed by SMIT Students</h4>
+<h4>👩‍💻 Developed by Sawera Memon,Khadeeja Memon</h4>
 
 Smart AI Study Assistant • 2026
 
