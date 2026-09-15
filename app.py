@@ -1,9 +1,49 @@
 import streamlit as st
+# ================= SIDEBAR ROBOT STYLE =================
 
+st.markdown("""
+<style>
 
-# ==============================
-# PAGE CONFIGURATION
-# ==============================
+/* Sidebar background */
+section[data-testid="stSidebar"] {
+    background: linear-gradient(
+        180deg,
+        #031b4e 0%,
+        #062d6f 50%,
+        #031536 100%
+    );
+}
+
+/* Robot image */
+section[data-testid="stSidebar"] img {
+    width: 150px !important;
+    height: 150px !important;
+    object-fit: contain;
+    display: block;
+    margin: 5px auto 10px auto;
+    border-radius: 50%;
+    filter: drop-shadow(0 0 8px #00e5ff)
+            drop-shadow(0 0 18px #2979ff);
+}
+
+/* Sidebar title */
+section[data-testid="stSidebar"] h1,
+section[data-testid="stSidebar"] h2,
+section[data-testid="stSidebar"] h3 {
+    color: white;
+}
+
+/* Sidebar text */
+section[data-testid="stSidebar"] p {
+    color: #d9e8ff;
+}
+
+</style>
+""", unsafe_allow_html=True)
+
+# =========================================================
+# PAGE CONFIG
+# =========================================================
 
 st.set_page_config(
     page_title="Smart AI Study Assistant",
@@ -12,877 +52,437 @@ st.set_page_config(
 )
 
 
-
-# ==============================
+# =========================================================
 # CUSTOM CSS
-# ==============================
+# =========================================================
 
 st.markdown("""
 <style>
 
-
-/* ---------- Main Background ---------- */
-
-.stApp {
-
-    background:
-    linear-gradient(
-        135deg,
-        #eef6ff,
-        #f8fbff,
-        #e8f4ff
-    );
-
+.block-container {
+    padding-top: 2rem;
+    padding-bottom: 3rem;
 }
 
-
-
-/* ---------- Sidebar ---------- */
-
-
-[data-testid="stSidebar"] {
-
-    background:
-    linear-gradient(
-        180deg,
-        #1e3c72,
-        #2a5298
-    );
-
-}
-
-
-[data-testid="stSidebar"] h1,
-[data-testid="stSidebar"] h2,
-[data-testid="stSidebar"] h3,
-[data-testid="stSidebar"] p,
-[data-testid="stSidebar"] span,
-[data-testid="stSidebar"] label {
-
-    color:white !important;
-
-}
-
-
-
-/* ---------- Hero Section ---------- */
-
-
+/* Main hero box */
 .hero {
-
-
-padding:45px;
-
-
-border-radius:25px;
-
-
-background:
-
-linear-gradient(
-135deg,
-#2563eb,
-#06b6d4
-);
-
-
-
-color:white;
-
-
-text-align:center;
-
-
-box-shadow:
-
-0px 10px 30px rgba(0,0,0,0.25);
-
-
+    background: linear-gradient(135deg, #0d47a1, #1976d2, #42a5f5);
+    padding: 40px;
+    border-radius: 25px;
+    text-align: center;
+    color: white;
+    margin-bottom: 30px;
+    box-shadow: 0 8px 25px rgba(0, 80, 180, 0.20);
 }
 
-
-
-
-.hero-title {
-
-
-font-size:45px;
-
-
-font-weight:800;
-
-
-color:white;
-
-
-animation:glow 2s infinite alternate;
-
-
+.hero h1 {
+    color: white;
+    font-size: 42px;
+    margin-bottom: 10px;
 }
 
-
-
-
-@keyframes glow {
-
-
-from {
-
-text-shadow:
-0 0 10px #ffffff;
-
+.hero h3 {
+    color: white;
+    font-size: 23px;
+    margin-bottom: 15px;
 }
 
-
-to {
-
-text-shadow:
-0 0 30px #06b6d4;
-
+.hero p {
+    color: white;
+    font-size: 17px;
 }
 
-
+/* Feature boxes */
+.feature-box {
+    background: white;
+    border: 1px solid #dce6f2;
+    border-radius: 20px;
+    padding: 24px;
+    min-height: 185px;
+    box-shadow: 0 5px 18px rgba(0, 0, 0, 0.06);
+    margin-bottom: 20px;
 }
 
-
-
-
-
-/* ---------- Feature Cards ---------- */
-
-
-.card {
-
-
-background:
-
-rgba(255,255,255,0.75);
-
-
-
-padding:25px;
-
-
-
-height:180px;
-
-
-
-border-radius:20px;
-
-
-
-text-align:center;
-
-
-
-box-shadow:
-
-0px 8px 25px rgba(0,0,0,0.10);
-
-
-
-transition:0.4s;
-
-
-
-backdrop-filter:blur(10px);
-
-
-
+.feature-box h3 {
+    color: #123b70;
 }
 
-
-
-
-.card h2 {
-
-
-font-size:35px;
-
-
+.feature-box p {
+    color: #5f6f82;
+    line-height: 1.5;
 }
-
-
-
-
-.card h3 {
-
-
-color:#2563eb;
-
-
-}
-
-
-
-.card p {
-
-
-color:#1f2937;
-
-
-font-size:16px;
-
-
-}
-
-
-
-
-.card:hover {
-
-
-transform:
-
-translateY(-8px);
-
-
-
-box-shadow:
-
-0px 15px 35px rgba(0,0,0,0.20);
-
-
-}
-
-
-
-
-
-/* ---------- Metrics ---------- */
-
-
-[data-testid="stMetric"] {
-
-
-background:
-
-rgba(255,255,255,0.70);
-
-
-
-padding:20px;
-
-
-
-border-radius:18px;
-
-
-
-box-shadow:
-
-0px 5px 20px rgba(0,0,0,0.10);
-
-
-
-}
-
-
-
-
-/* ---------- Buttons ---------- */
-
-
-.stButton button {
-
-
-background:
-
-linear-gradient(
-90deg,
-#2563eb,
-#06b6d4
-);
-
-
-
-color:white;
-
-
-
-border-radius:20px;
-
-
-
-border:none;
-
-
-
-padding:10px 25px;
-
-
-
-font-size:18px;
-
-
-
-font-weight:bold;
-
-
-
-}
-
-
-
-.stButton button:hover {
-
-
-transform:scale(1.05);
-
-
-}
-
-
-
-
-
-/* ---------- About Section ---------- */
-
-
-.about-box {
-
-
-background:
-
-rgba(255,255,255,0.75);
-
-
-
-padding:30px;
-
-
-
-border-radius:20px;
-
-
-
-box-shadow:
-
-0px 8px 25px rgba(0,0,0,0.10);
-
-
-
-}
-
-
-
-.about-box h2 {
-
-
-color:#2563eb;
-
-
-}
-
-
-
-.about-box p,
-.about-box li {
-
-
-color:#1f2937;
-
-
-
-font-size:17px;
-
-
-
-line-height:1.8;
-
-
-
-}
-
-
-
-
-
-/* ---------- Dark Mode Support ---------- */
-
-
-@media (prefers-color-scheme: dark) {
-
-
-
-.stApp {
-
-
-background:
-
-linear-gradient(
-135deg,
-#0f172a,
-#1e293b
-);
-
-
-}
-
-
-
-.card,
-.about-box,
-[data-testid="stMetric"] {
-
-
-background:
-
-rgba(30,41,59,0.90);
-
-
-}
-
-
-
-
-.card h3,
-.card p,
-.about-box h2,
-.about-box p,
-.about-box li {
-
-
-color:white !important;
-
-
-}
-
-
-
-}
-
-
-
-
 
 </style>
-
 """, unsafe_allow_html=True)
 
 
-
-
-
-# ==============================
+# =========================================================
 # SIDEBAR
-# ==============================
+# =========================================================
 
+# ================= SIDEBAR ROBOT =================
 
-st.sidebar.title(
-"🎓 Smart AI Study Assistant"
+st.sidebar.image(
+    "assets/robot.png"
 )
 
+st.sidebar.title("🎓 Smart AI")
+st.sidebar.subheader("Study Assistant")
+st.sidebar.caption("Learn • Practice • Grow")
 
-st.sidebar.markdown("---")
-
-
-
-st.sidebar.success(
-"👋 Welcome Student!"
-)
-
-
+st.sidebar.divider()
 
 menu = st.sidebar.radio(
-"Navigation",
-[
-"🏠 Home",
-"💬 AI Chat",
-"📄 PDF Assistant",
-"📝 Summarizer",
-"❓ Quiz Generator",
-"🖼 OCR",
-"📚 History",
-"⚙ Settings"
-]
+    "🧭 Navigation",
+    [
+        "🏠 Home",
+        "🤖 AI Chat",
+        "📄 PDF Assistant",
+        "📝 Summarizer",
+        "❓ Quiz Generator",
+        "🔍 OCR",
+        "🧠 Smart Study Planner",
+        "📊 Progress Dashboard",
+        "🎤 Advanced Voice Assistant",
+        "🕘 History",
+        "⚙️ Settings"
+    ]
 )
 
 
+# =========================================================
+# NAVIGATION
+# =========================================================
 
-st.sidebar.markdown("---")
+if menu == "📄 PDF Assistant":
+    st.switch_page("pages/3_PDF_Assistant.py")
+
+elif menu == "🧠 Smart Study Planner":
+    st.switch_page("pages/6_Smart_Study_Planner.py")
+
+elif menu == "📊 Progress Dashboard":
+    st.switch_page("pages/7_Progress_Dashboard.py")
+
+elif menu == "🎤 Advanced Voice Assistant":
+    st.switch_page("pages/9_Voice_Assistant.py")
 
 
-
-st.sidebar.info(
-"🚀 Powered by Python + Streamlit + AI"
-)
-# ==============================
-# HOME PAGE
-# ==============================
-
+# =========================================================
+# HOME
+# =========================================================
 
 if menu == "🏠 Home":
 
+    # -----------------------------------------------------
+    # HERO BOX
+    # -----------------------------------------------------
 
-
-    # ---------- Hero Banner ----------
-
+    # HERO BOX
 
     st.markdown("""
+<div style="
+padding:30px;
+border-radius:20px;
+background:linear-gradient(90deg,#4F46E5,#06B6D4);
+color:white;
+text-align:center;
+box-shadow:0px 4px 15px rgba(0,0,0,0.2);
+">
+<h1>🎓 Smart AI Study Assistant</h1>
+<h3>Your Personal AI Learning Companion</h3>
+<p>Powered by Groq AI • RAG • EasyOCR • Streamlit</p>
+</div>
+""", unsafe_allow_html=True)
 
-    <div class="hero">
+    # -----------------------------------------------------
+    # LEARNING OVERVIEW
+    # -----------------------------------------------------
 
+    st.header("📊 Your Learning Overview")
 
-    <div class="hero-title">
+    col1, col2, col3, col4 = st.columns(4)
 
-    🎓 Smart AI Study Assistant
+    with col1:
+        st.metric("📄 PDFs Uploaded", "0")
 
-    </div>
+    with col2:
+        st.metric("📝 Summaries", "0")
 
+    with col3:
+        st.metric("❓ Quizzes", "0")
 
-    <h3>
-    Your Personal AI Learning Companion
-    </h3>
-
-
-    <p>
-
-    Learn smarter with AI-powered PDF analysis,
-    summarization, quizzes and intelligent chat.
-
-    </p>
-
-
-    </div>
-
-    """, unsafe_allow_html=True)
-
-
-
-
-    st.write("")
-
-
-
-
-    # ---------- Metrics ----------
-
-
-    c1,c2,c3,c4 = st.columns(4)
-
-
-
-    with c1:
-
-        st.metric(
-            "📄 PDFs Uploaded",
-            "0"
-        )
-
-
-
-    with c2:
-
-        st.metric(
-            "📝 Summaries",
-            "0"
-        )
-
-
-
-    with c3:
-
-        st.metric(
-            "❓ Quizzes",
-            "0"
-        )
-
-
-
-    with c4:
-
-        st.metric(
-            "💬 AI Chats",
-            "0"
-        )
-
-
-
+    with col4:
+        st.metric("💬 AI Chats", "0")
 
 
     st.divider()
 
 
+    # -----------------------------------------------------
+    # FEATURES
+    # -----------------------------------------------------
 
+    st.header("🚀 AI Learning Features")
 
-
-    # ---------- Features ----------
-
-
-    st.header(
-        "🚀 AI Features"
+    st.write(
+        "Everything you need to study smarter in one platform."
     )
 
+    st.write("")
 
 
+    # =====================================================
+    # ROW 1
+    # =====================================================
 
-    # First Row
-
-
-    col1,col2,col3 = st.columns(3)
-
-
+    col1, col2, col3 = st.columns(3)
 
     with col1:
 
-        st.markdown("""
-        <div class="card">
+        with st.container(border=True):
 
-        <h2>📄</h2>
+            st.markdown("## 📄 PDF Assistant")
 
-        <h3>PDF Assistant</h3>
-
-        <p>
-        Upload PDFs and get AI explanations.
-        </p>
-
-        </div>
-
-        """,
-        unsafe_allow_html=True)
-
-
-
+            st.write(
+                "Upload your PDF and get AI-powered "
+                "explanations, summaries and answers."
+            )
 
 
     with col2:
 
-        st.markdown("""
-        <div class="card">
+        with st.container(border=True):
 
-        <h2>📝</h2>
+            st.markdown("## 📝 Smart Summarizer")
 
-        <h3>Smart Summarizer</h3>
-
-        <p>
-        Convert long notes into short summaries.
-        </p>
-
-        </div>
-
-        """,
-        unsafe_allow_html=True)
-
-
-
+            st.write(
+                "Turn long study material into short "
+                "and easy-to-understand summaries."
+            )
 
 
     with col3:
 
-        st.markdown("""
-        <div class="card">
+        with st.container(border=True):
 
-        <h2>❓</h2>
+            st.markdown("## ❓ Quiz Generator")
 
-        <h3>Quiz Generator</h3>
-
-        <p>
-        Generate AI based MCQs and quizzes.
-        </p>
-
-        </div>
-
-        """,
-        unsafe_allow_html=True)
+            st.write(
+                "Generate AI-powered MCQs and practice "
+                "questions from your study material."
+            )
 
 
+    # =====================================================
+    # ROW 2
+    # =====================================================
+
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+
+        with st.container(border=True):
+
+            st.markdown("## 🤖 AI Chat")
+
+            st.write(
+                "Ask questions and receive intelligent "
+                "student-friendly answers."
+            )
 
 
+    with col2:
+
+        with st.container(border=True):
+
+            st.markdown("## 🔍 OCR Reader")
+
+            st.write(
+                "Extract text from handwritten and "
+                "printed study notes."
+            )
+
+
+    with col3:
+
+        with st.container(border=True):
+
+            st.markdown("## 🎤 Voice Assistant")
+
+            st.write(
+                "Advanced voice-based learning support "
+                "for future enhancement."
+            )
+
+
+    # =====================================================
+    # ROW 3
+    # =====================================================
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+
+        with st.container(border=True):
+
+            st.markdown("## 🧠 Smart Study Planner")
+
+            st.write(
+                "Create personalized study plans according "
+                "to your exam schedule."
+            )
+
+
+    with col2:
+
+        with st.container(border=True):
+
+            st.markdown("## 📊 Progress Dashboard")
+
+            st.write(
+                "Track topics, quiz performance, study "
+                "progress and study time."
+            )
+
+
+    st.divider()
+
+
+    # -----------------------------------------------------
+    # ABOUT
+    # -----------------------------------------------------
+
+    st.header("📌 About Smart AI Study Assistant")
+
+    with st.container(border=True):
+
+        st.write(
+            "Smart AI Study Assistant is a multimodal "
+            "AI learning platform designed to help "
+            "students learn faster, smarter and "
+            "more effectively."
+        )
+
+        st.subheader("✨ Core Capabilities")
+
+        col1, col2 = st.columns(2)
+
+        with col1:
+            st.write("✔ AI Chat")
+            st.write("✔ PDF Analysis and RAG")
+            st.write("✔ Smart Summarization")
+            st.write("✔ Automatic Quiz Generation")
+
+        with col2:
+            st.write("✔ OCR for Study Notes")
+            st.write("✔ Smart Study Planning")
+            st.write("✔ Student Progress Dashboard")
+            st.write("✔ Advanced Voice Assistant")
+
+
+    st.divider()
+
+
+    # -----------------------------------------------------
+    # START LEARNING
+    # -----------------------------------------------------
+
+    st.header("🚀 Ready to Start Learning?")
+
+    if st.button(
+        "🚀 Start Learning",
+        type="primary",
+        use_container_width=True
+    ):
+
+        st.balloons()
+
+        st.success(
+            "🎉 Welcome to your AI learning journey!"
+        )
 
 
     st.write("")
 
-
-
-
-
-    # Second Row
-
-
-    col4,col5,col6 = st.columns(3)
-
-
-
-
-    with col4:
-
-
-        st.markdown("""
-        <div class="card">
-
-
-        <h2>💬</h2>
-
-
-        <h3>AI Chat</h3>
-
-
-        <p>
-        Ask questions and learn with AI.
-        </p>
-
-
-        </div>
-
-        """,
-        unsafe_allow_html=True)
-
-
-
-
-
-
-    with col5:
-
-
-        st.markdown("""
-        <div class="card">
-
-
-        <h2>🖼</h2>
-
-
-        <h3>OCR Reader</h3>
-
-
-        <p>
-        Extract text from images and notes.
-        </p>
-
-
-        </div>
-
-        """,
-        unsafe_allow_html=True)
-
-
-
-
-
-
-
-    with col6:
-
-
-        st.markdown("""
-        <div class="card">
-
-
-        <h2>🔊</h2>
-
-
-        <h3>Voice Assistant</h3>
-
-
-        <p>
-        Voice-based AI learning support.
-        </p>
-
-
-        </div>
-
-        """,
-        unsafe_allow_html=True)
-
-
-
-
-
-    st.divider()
-
-
-
-
-
-    # ---------- About Project ----------
-
-
-
-    st.markdown("""
-    
-    <div class="about-box">
-
-
-    <h2>
-    📌 About Project
-    </h2>
-
-
-
-    <p>
-    Smart AI Study Assistant is a multimodal AI learning platform designed for students.
-    </p>
-
-
-
-    <p>
-    It helps students:
-    </p>
-
-
-
-    <ul>
-
-    <li>✔ Understand PDFs using AI</li>
-
-    <li>✔ Summarize study notes</li>
-
-    <li>✔ Generate MCQs automatically</li>
-
-    <li>✔ Extract text from images using OCR</li>
-
-    <li>✔ Chat with AI assistant</li>
-
-    <li>✔ Learn efficiently with smart tools</li>
-
-
-    </ul>
-
-
-
-    <p>
-    🚀 Built using AI, RAG, OCR and Streamlit.
-    </p>
-
-
-
-    </div>
-
-
-    """,
-    unsafe_allow_html=True)
-
-
-
-
-
-    st.divider()
-
-
-
-
-
-    # ---------- Start Button ----------
-
-
-    if st.button(
-        "🚀 Start Learning"
-    ):
-
-
-        st.balloons()
-
-
-        st.success(
-            "AI Learning Journey Started!"
-        )
-
-
-
-
-
     st.caption(
-        "© 2026 Smart AI Study Assistant | AI Powered Learning Platform"
+        "© 2026 Smart AI Study Assistant | "
+        "AI Powered Learning Platform"
+    )
+
+
+# =========================================================
+# AI CHAT
+# =========================================================
+
+elif menu == "🤖 AI Chat":
+
+    st.title("🤖 AI Chat")
+
+    st.write(
+        "Your AI learning assistant."
+    )
+
+
+# =========================================================
+# SUMMARIZER
+# =========================================================
+
+elif menu == "📝 Summarizer":
+
+    st.title("📝 Smart Summarizer")
+
+    st.write(
+        "Summarize your study material using AI."
+    )
+
+
+# =========================================================
+# QUIZ
+# =========================================================
+
+elif menu == "❓ Quiz Generator":
+
+    st.title("❓ Quiz Generator")
+
+    st.write(
+        "Generate practice questions from your study material."
+    )
+
+
+# =========================================================
+# OCR
+# =========================================================
+
+elif menu == "🔍 OCR":
+
+    st.title("🔍 OCR Reader")
+
+    st.write(
+        "Extract text from your study notes."
+    )
+
+
+# =========================================================
+# HISTORY
+# =========================================================
+
+elif menu == "🕘 History":
+
+    st.title("🕘 History")
+
+    st.write(
+        "Your previous study activity will appear here."
+    )
+
+
+# =========================================================
+# SETTINGS
+# =========================================================
+
+elif menu == "⚙️ Settings":
+
+    st.title("⚙️ Settings")
+
+    st.write(
+        "Application settings."
     )
