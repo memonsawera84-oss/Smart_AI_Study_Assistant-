@@ -2,24 +2,15 @@ import streamlit as st
 from datetime import date, timedelta
 from utils.ai_engine import ask_ai
 
-
-# ---------------------------------------------------------
-# PAGE CONFIGURATION
-# ---------------------------------------------------------
-
 st.set_page_config(
     page_title="Smart Study Planner",
     page_icon="🧠",
     layout="wide"
 )
 
-
-# ---------------------------------------------------------
-# SESSION STATE INITIALIZATION
-# ---------------------------------------------------------
-
-if "study_plan" not in st.session_state:
-    st.session_state.study_plan = ""
+# --------------------------------------------------
+# SESSION STATE
+# --------------------------------------------------
 
 if "study_topics" not in st.session_state:
     st.session_state.study_topics = []
@@ -27,49 +18,36 @@ if "study_topics" not in st.session_state:
 if "completed_topics" not in st.session_state:
     st.session_state.completed_topics = set()
 
-if "planner_generated" not in st.session_state:
-    st.session_state.planner_generated = False
-
-
-# ---------------------------------------------------------
-# HEADER
-# ---------------------------------------------------------
+# --------------------------------------------------
+# PAGE TITLE
+# --------------------------------------------------
 
 st.title("🧠 Smart Study Planner")
 
-st.markdown(
-    """
-    Create a personalized AI-powered study plan based on your
-    subjects, available study time, difficulty level, and exam date.
-    """
+st.write(
+    "Create a personalized AI-powered study plan based on your "
+    "subject, topics, exam date, study hours and learning style."
 )
 
 st.divider()
 
-
-# ---------------------------------------------------------
+# --------------------------------------------------
 # INPUT SECTION
-# ---------------------------------------------------------
+# --------------------------------------------------
 
 col1, col2 = st.columns(2)
 
 with col1:
+
     subject = st.text_input(
         "📚 Subject",
         placeholder="e.g. Artificial Intelligence"
     )
 
-    topics_text = st.text_area(
+    topics = st.text_area(
         "📖 Topics / Chapters",
-        placeholder=(
-            "Enter topics separated by commas or one topic per line.\n\n"
-            "Example:\n"
-            "Machine Learning\n"
-            "Neural Networks\n"
-            "NLP\n"
-            "Computer Vision"
-        ),
-        height=160
+        placeholder="Enter topics separated by commas",
+        height=150
     )
 
     difficulty = st.selectbox(
@@ -81,12 +59,12 @@ with col1:
         ]
     )
 
-
 with col2:
+
     exam_date = st.date_input(
         "📅 Exam Date",
-        min_value=date.today(),
-        value=date.today() + timedelta(days=7)
+        value=date.today() + timedelta(days=7),
+        min_value=date.today()
     )
 
     daily_hours = st.number_input(
@@ -97,8 +75,8 @@ with col2:
         step=0.5
     )
 
-    learning_style = st.selectbox(
-        "📝 Preferred Study Style",
+    study_style = st.selectbox(
+        "📝 Study Style",
         [
             "Balanced",
             "Theory Focused",
@@ -107,168 +85,153 @@ with col2:
         ]
     )
 
-
 st.divider()
 
-
-# ---------------------------------------------------------
+# --------------------------------------------------
 # GENERATE PLAN
-# ---------------------------------------------------------
+# --------------------------------------------------
 
-generate_button = st.button(
+if st.button(
     "🚀 Generate Smart Study Plan",
     type="primary",
     use_container_width=True
-)
-
-
-if generate_button:
+):
 
     if not subject.strip():
         st.warning("Please enter a subject.")
         st.stop()
 
-    if not topics_text.strip():
-        st.warning("Please enter at least one topic.")
+    if not topics.strip():
+        st.warning("Please enter your topics.")
         st.stop()
 
-    # Calculate available days
-    days_available = (exam_date - date.today()).days + 1
+    # Convert topics into a clean list
+    topic_list = [
+        topic.strip()
+        for topic in topics.split(",")
+        if topic.strip()
+    ]
 
-    if days_available <= 0:
-        st.error("Please select a future exam date.")
-        st.stop()
+    # Save topics for Progress Dashboard
+    st.session_state.study_topics = topic_list
 
-    # Clean topics
-    topics = []
-
-    for line in topics_text.replace(",", "\n").splitlines():
-        topic = line.strip()
-
-        if topic and topic not in topics:
-            topics.append(topic)
-
-    st.session_state.study_topics = topics
-
-    # Reset completed topics when a new plan is generated
+    # Reset completed topics for new plan
     st.session_state.completed_topics = set()
 
-    # -----------------------------------------------------
+    days = (exam_date - date.today()).days + 1
+
+    # --------------------------------------------------
     # AI PROMPT
-    # -----------------------------------------------------
+    # --------------------------------------------------
 
     prompt = f"""
 You are an expert AI Study Planner.
 
-Create a professional and realistic study plan for a student.
+Create a personalized and realistic study plan.
 
-Student Information:
-Subject: {subject}
+Subject:
+{subject}
+
 Topics:
-{chr(10).join("- " + topic for topic in topics)}
+{", ".join(topic_list)}
 
-Difficulty Level: {difficulty}
-Exam Date: {exam_date.strftime("%d %B %Y")}
-Days Available: {days_available}
-Daily Study Time: {daily_hours} hours
-Preferred Study Style: {learning_style}
+Difficulty:
+{difficulty}
 
-Requirements:
+Exam Date:
+{exam_date.strftime("%d %B %Y")}
 
-1. Create a day-by-day study plan.
-2. Distribute the topics realistically across the available days.
-3. Do not overload one day.
-4. Include revision before the exam.
-5. Include practice questions or quizzes.
-6. Include short breaks where appropriate.
-7. Prioritize difficult topics.
-8. Keep the plan practical for a student.
-9. Use a professional markdown table.
+Days Available:
+{days}
 
-The table should contain:
+Daily Study Time:
+{daily_hours} hours
 
-Day | Topics | Study Activity | Recommended Time
+Study Style:
+{study_style}
 
-After the table, provide:
+Create a day-by-day study plan.
+
+Use exactly this format:
+
+| Day | Topics | Activity | Time |
+
+Include:
+- Learning
+- Practice
+- Revision
+- Quiz or practice questions
+- Final revision before the exam
+
+After the table provide:
 
 ### Study Strategy
-Give 3-5 short useful study tips.
 
-### Final Revision
-Explain what the student should revise before the exam.
+Give 3-5 short and practical study tips.
 
-Do not invent topics that are unrelated to the provided subject.
+Keep the plan simple, realistic and student-friendly.
 """
 
-    with st.spinner("🤖 AI is creating your personalized study plan..."):
+    # --------------------------------------------------
+    # AI RESPONSE
+    # --------------------------------------------------
+
+    with st.spinner(
+        "🤖 Creating your personalized study plan..."
+    ):
 
         result = ask_ai(
             prompt,
             language="English"
         )
 
-    st.session_state.study_plan = result
-    st.session_state.planner_generated = True
-
-
-# ---------------------------------------------------------
-# DISPLAY GENERATED PLAN
-# ---------------------------------------------------------
-
-if st.session_state.planner_generated:
-
     st.divider()
 
     st.subheader("📅 Your Personalized Study Plan")
 
-    st.markdown(st.session_state.study_plan)
+    st.markdown(result)
+
+    st.success(
+        "✅ Study plan generated successfully!"
+    )
+
+# --------------------------------------------------
+# TOPIC TRACKER
+# --------------------------------------------------
+
+if st.session_state.study_topics:
 
     st.divider()
 
-    # -----------------------------------------------------
-    # TOPIC TRACKING
-    # -----------------------------------------------------
+    st.subheader("✅ Topic Completion Tracker")
 
-    st.subheader("✅ Topic Completion")
-
-    st.caption(
-        "Mark topics as completed to update your Progress Dashboard."
+    st.write(
+        "Mark the topics you have completed. "
+        "Your progress will appear in the Progress Dashboard."
     )
 
-    for index, topic in enumerate(st.session_state.study_topics):
+    for topic in st.session_state.study_topics:
 
-        completed = topic in st.session_state.completed_topics
-
-        checkbox_value = st.checkbox(
+        checked = st.checkbox(
             topic,
-            value=completed,
-            key=f"planner_topic_{index}"
+            value=topic in st.session_state.completed_topics,
+            key=f"topic_{topic}"
         )
 
-        if checkbox_value:
+        if checked:
             st.session_state.completed_topics.add(topic)
         else:
             st.session_state.completed_topics.discard(topic)
 
-    # -----------------------------------------------------
-    # PROGRESS
-    # -----------------------------------------------------
+    total = len(st.session_state.study_topics)
+    completed = len(st.session_state.completed_topics)
 
-    total_topics = len(st.session_state.study_topics)
-    completed_count = len(st.session_state.completed_topics)
-
-    if total_topics > 0:
-
-        progress = completed_count / total_topics
+    if total > 0:
+        progress = completed / total
 
         st.progress(progress)
 
         st.write(
-            f"**Progress:** {completed_count}/{total_topics} topics completed "
+            f"📊 Progress: {completed}/{total} topics completed "
             f"({progress * 100:.0f}%)"
         )
-
-    st.info(
-        "💡 Your completed topics are automatically used by the "
-        "Progress Dashboard during this session."
-    )

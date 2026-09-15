@@ -1,21 +1,15 @@
 import streamlit as st
 import pandas as pd
 
-
-# ---------------------------------------------------------
-# PAGE CONFIGURATION
-# ---------------------------------------------------------
-
 st.set_page_config(
     page_title="Progress Dashboard",
     page_icon="📊",
     layout="wide"
 )
 
-
-# ---------------------------------------------------------
-# SESSION STATE INITIALIZATION
-# ---------------------------------------------------------
+# --------------------------------------------------
+# SESSION STATE
+# --------------------------------------------------
 
 if "study_topics" not in st.session_state:
     st.session_state.study_topics = []
@@ -29,72 +23,68 @@ if "quiz_scores" not in st.session_state:
 if "study_hours" not in st.session_state:
     st.session_state.study_hours = 0.0
 
-
-# ---------------------------------------------------------
-# HEADER
-# ---------------------------------------------------------
+# --------------------------------------------------
+# TITLE
+# --------------------------------------------------
 
 st.title("📊 Student Progress Dashboard")
 
-st.markdown(
-    """
-    Track your learning progress, quiz performance, completed topics,
-    and study activity in one place.
-    """
+st.write(
+    "Track your learning progress, quiz performance, "
+    "completed topics and study activity in one place."
 )
 
 st.divider()
 
+# --------------------------------------------------
+# CALCULATIONS
+# --------------------------------------------------
 
-# ---------------------------------------------------------
-# CALCULATE TOPIC PROGRESS
-# ---------------------------------------------------------
-
-total_topics = len(st.session_state.study_topics)
+total_topics = len(
+    st.session_state.study_topics
+)
 
 completed_topics = len(
     st.session_state.completed_topics
 )
 
 if total_topics > 0:
-    study_progress = completed_topics / total_topics
+    study_progress = (
+        completed_topics / total_topics
+    )
 else:
     study_progress = 0
-
-
-# ---------------------------------------------------------
-# QUIZ PERFORMANCE
-# ---------------------------------------------------------
 
 quiz_scores = st.session_state.quiz_scores
 
 if quiz_scores:
-    average_score = sum(quiz_scores) / len(quiz_scores)
+    average_score = (
+        sum(quiz_scores) / len(quiz_scores)
+    )
 else:
     average_score = 0
 
-
-# ---------------------------------------------------------
-# TOP METRIC CARDS
-# ---------------------------------------------------------
+# --------------------------------------------------
+# METRICS
+# --------------------------------------------------
 
 col1, col2, col3, col4 = st.columns(4)
 
 with col1:
     st.metric(
-        "📚 Topics Studied",
+        "📚 Topics Completed",
         completed_topics
     )
 
 with col2:
     st.metric(
-        "📝 Quizzes Completed",
+        "📝 Quizzes",
         len(quiz_scores)
     )
 
 with col3:
     st.metric(
-        "🎯 Average Quiz Score",
+        "🎯 Average Score",
         f"{average_score:.0f}%"
     )
 
@@ -104,20 +94,18 @@ with col4:
         f"{study_progress * 100:.0f}%"
     )
 
-
 st.divider()
 
-
-# ---------------------------------------------------------
-# LEARNING PROGRESS
-# ---------------------------------------------------------
+# --------------------------------------------------
+# STUDY PROGRESS
+# --------------------------------------------------
 
 st.subheader("📚 Learning Progress")
 
 if total_topics == 0:
 
     st.info(
-        "No study plan is available yet. "
+        "No study plan available yet. "
         "Create a plan from Smart Study Planner first."
     )
 
@@ -126,27 +114,31 @@ else:
     st.progress(study_progress)
 
     st.write(
-        f"{completed_topics} of {total_topics} topics completed."
+        f"{completed_topics} of "
+        f"{total_topics} topics completed."
     )
 
-    remaining = total_topics - completed_topics
+    remaining = (
+        total_topics - completed_topics
+    )
 
     if remaining == 0:
+
         st.success(
             "🎉 Excellent! All planned topics are completed."
         )
+
     else:
+
         st.warning(
             f"📖 {remaining} topic(s) remaining."
         )
 
-
 st.divider()
 
-
-# ---------------------------------------------------------
+# --------------------------------------------------
 # TOPIC STATUS
-# ---------------------------------------------------------
+# --------------------------------------------------
 
 st.subheader("📋 Topic Status")
 
@@ -180,13 +172,11 @@ else:
         hide_index=True
     )
 
-
 st.divider()
 
-
-# ---------------------------------------------------------
+# --------------------------------------------------
 # QUIZ PERFORMANCE
-# ---------------------------------------------------------
+# --------------------------------------------------
 
 st.subheader("📝 Quiz Performance")
 
@@ -212,7 +202,9 @@ else:
             }
         )
 
-    quiz_df = pd.DataFrame(quiz_data)
+    quiz_df = pd.DataFrame(
+        quiz_data
+    )
 
     st.dataframe(
         quiz_df,
@@ -224,19 +216,13 @@ else:
         quiz_df.set_index("Quiz")["Score"]
     )
 
-
 st.divider()
 
-
-# ---------------------------------------------------------
+# --------------------------------------------------
 # RECORD QUIZ RESULT
-# ---------------------------------------------------------
+# --------------------------------------------------
 
 st.subheader("➕ Record Quiz Result")
-
-st.caption(
-    "Enter your quiz score to update the dashboard."
-)
 
 quiz_score = st.number_input(
     "Quiz Score (%)",
@@ -256,23 +242,21 @@ if st.button(
     )
 
     st.success(
-        f"Quiz result saved: {quiz_score}%"
+        f"✅ Quiz result saved: {quiz_score}%"
     )
 
     st.rerun()
 
-
 st.divider()
 
+# --------------------------------------------------
+# STUDY TIME
+# --------------------------------------------------
 
-# ---------------------------------------------------------
-# STUDY HOURS TRACKER
-# ---------------------------------------------------------
-
-st.subheader("⏰ Study Time")
+st.subheader("⏰ Study Time Tracker")
 
 study_hours = st.number_input(
-    "Add study hours",
+    "Add Study Hours",
     min_value=0.0,
     max_value=24.0,
     value=0.0,
@@ -287,24 +271,21 @@ if st.button(
     st.session_state.study_hours += study_hours
 
     st.success(
-        f"{study_hours:.1f} study hours added."
+        f"✅ {study_hours:.1f} study hours added."
     )
 
     st.rerun()
-
 
 st.metric(
     "Total Study Hours",
     f"{st.session_state.study_hours:.1f} hrs"
 )
 
-
 st.divider()
 
-
-# ---------------------------------------------------------
+# --------------------------------------------------
 # AREAS TO IMPROVE
-# ---------------------------------------------------------
+# --------------------------------------------------
 
 st.subheader("🎯 Areas to Improve")
 
@@ -314,30 +295,35 @@ pending_topics = [
     if topic not in st.session_state.completed_topics
 ]
 
-
 if pending_topics:
 
     for topic in pending_topics:
-        st.write(f"🔸 {topic}")
+
+        st.write(
+            f"🔸 {topic}"
+        )
 
 else:
 
     if total_topics > 0:
+
         st.success(
-            "🌟 No pending topics. Keep revising to stay prepared!"
-        )
-    else:
-        st.info(
-            "Create a study plan to identify areas for improvement."
+            "🌟 No pending topics. "
+            "Keep revising to stay prepared!"
         )
 
+    else:
+
+        st.info(
+            "Create a study plan to identify "
+            "areas for improvement."
+        )
 
 st.divider()
 
-
-# ---------------------------------------------------------
-# PERFORMANCE MESSAGE
-# ---------------------------------------------------------
+# --------------------------------------------------
+# PERFORMANCE INSIGHT
+# --------------------------------------------------
 
 st.subheader("💡 Performance Insight")
 
@@ -365,5 +351,6 @@ elif average_score > 0:
 else:
 
     st.info(
-        "Complete a quiz to receive personalized performance feedback."
+        "Complete a quiz to receive "
+        "personalized performance feedback."
     )

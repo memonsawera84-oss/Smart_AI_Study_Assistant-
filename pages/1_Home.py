@@ -99,6 +99,42 @@ with c2:
 
 st.divider()
 
+# ================= NEW SMART FEATURES =================
+
+st.subheader("🧠 Smart Learning Tools")
+
+planner_col, progress_col = st.columns(2)
+
+with planner_col:
+
+    st.success("""
+### 🧠 Smart Study Planner
+
+✅ Personalized Study Plan
+
+✅ Exam Date Planning
+
+✅ Daily Study Schedule
+
+✅ Topic Completion Tracking
+""")
+
+with progress_col:
+
+    st.info("""
+### 📊 Student Progress Dashboard
+
+✅ Track Completed Topics
+
+✅ Quiz Performance
+
+✅ Study Progress
+
+✅ Study Time Tracking
+""")
+
+st.divider()
+
 # ================= TECHNOLOGIES =================
 
 st.subheader("🛠 Technologies Used")
@@ -162,13 +198,27 @@ st.markdown("""
 
 st.divider()
 
-st.success("🎯 Goal: Helping students learn faster with Artificial Intelligence.")
+# ================= PROJECT GOAL =================
 
-if st.button("🚀 Start Learning", use_container_width=True):
+st.success(
+    "🎯 Goal: Helping students learn faster with Artificial Intelligence."
+)
+
+# ================= START LEARNING =================
+
+if st.button(
+    "🚀 Start Learning",
+    use_container_width=True
+):
     st.balloons()
-    st.success("Welcome! Use the left sidebar to explore the modules.")
+
+    st.success(
+        "Welcome! Use the left sidebar to explore the modules."
+    )
 
 st.divider()
+
+# ================= FOOTER =================
 
 st.markdown("""
 <div style="text-align:center;color:gray;">
@@ -179,3 +229,4 @@ Smart AI Study Assistant • 2026
 Powered by Groq AI
 </div>
 """, unsafe_allow_html=True)
+
